@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Spotify Voice Chatbot</title>
+<link href="https://fonts.googleapis.com/css2?family=Circular+Std:wght@400;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --green: #1DB954;
+    --green-dark: #158a3e;
+    --green-glow: rgba(29, 185, 84, 0.35);
+    --green-dim: rgba(29, 185, 84, 0.12);
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: rgba(255,255,255,0.07);
+    --text: #ffffff;
+    --text-muted: rgba(255,255,255,0.45);
+    --text-sub: rgba(255,255,255,0.25);
+    --radius: 16px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  /* Background ambient */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -200px; left: 50%;
+    transform: translateX(-50%);
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(29,185,84,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Header ── */
+  header {
+    width: 100%;
+    max-width: 680px;
+    padding: 32px 24px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative; z-index: 1;
+  }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: var(--green);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .logo-icon svg { width: 20px; height: 20px; fill: #000; }
+  header h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--text);
+  }
+  header span {
+    font-size: 11px;
+    color: var(--green);
+    letter-spacing: 0.12em;
+    margin-left: 2px;
+    opacity: 0.85;
+  }
+
+  /* ── Main container ── */
+  .container {
+    width: 100%;
+    max-width: 680px;
+    padding: 28px 24px 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: relative; z-index: 1;
+  }
+
+  /* ── Quick mood chips ── */
+  .mood-section { display: flex; flex-direction: column; gap: 10px; }
+  .mood-label {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--text-sub);
+    text-transform: uppercase;
+  }
+  .mood-chips {
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .chip:hover, .chip.active {
+    border-color: var(--green);
+    color: var(--green);
+    background: var(--green-dim);
+  }
+  .chip .chip-emoji { font-size: 14px; }
+
+  /* ── Chat messages ── */
+  .messages {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 80px;
+  }
+
+  .msg {
+    display: flex;
+    gap: 12px;
+    animation: fadeSlideIn 0.35s ease forwards;
+    opacity: 0;
+  }
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg.user { flex-direction: row-reverse; }
+
+  .msg-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .msg.bot .msg-avatar {
+    background: var(--green);
+    color: #000;
+  }
+  .msg.user .msg-avatar {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+
+  .msg-bubble {
+    max-width: 80%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  .msg.user .msg-bubble {
+    background: var(--green-dim);
+    border-color: rgba(29,185,84,0.2);
+    color: var(--text);
+  }
+  .msg.bot .msg-bubble { border-radius: 4px 16px 16px 16px; }
+  .msg.user .msg-bubble { border-radius: 16px 4px 16px 16px; }
+
+  /* ── Playlist card ── */
+  .playlist-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .playlist-header {
+    padding: 14px 16px;
+    background: linear-gradient(135deg, rgba(29,185,84,0.15), transparent);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .playlist-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--green);
+    letter-spacing: 0.04em;
+  }
+  .playlist-meta { font-size: 11px; color: var(--text-sub); }
+
+  .song-list { display: flex; flex-direction: column; }
+  .song-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .song-item:last-child { border-bottom: none; }
+  .song-item:hover { background: var(--surface2); }
+  .song-item.playing { background: var(--green-dim); }
+  .song-item.playing::before {
+    content: '';
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--green);
+  }
+
+  .song-num {
+    font-size: 11px;
+    color: var(--text-sub);
+    width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .song-item.playing .song-num { display: none; }
+  .playing-bars {
+    display: none;
+    width: 18px; height: 16px;
+    align-items: flex-end; gap: 2px;
+    flex-shrink: 0;
+  }
+  .song-item.playing .playing-bars { display: flex; }
+  .bar {
+    width: 3px;
+    background: var(--green);
+    border-radius: 2px;
+    animation: barBounce 0.8s ease-in-out infinite;
+  }
+  .bar:nth-child(1) { height: 60%; animation-delay: 0s; }
+  .bar:nth-child(2) { height: 100%; animation-delay: 0.15s; }
+  .bar:nth-child(3) { height: 40%; animation-delay: 0.3s; }
+  @keyframes barBounce {
+    0%,100% { transform: scaleY(1); }
+    50%      { transform: scaleY(0.4); }
+  }
+
+  .song-thumb {
+    width: 36px; height: 36px;
+    border-radius: 6px;
+    object-fit: cover;
+    background: var(--surface2);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    border: 1px solid var(--border);
+  }
+  .song-info { flex: 1; min-width: 0; }
+  .song-name {
+    font-size: 12px; font-weight: 700;
+    color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .song-item.playing .song-name { color: var(--green); }
+  .song-artist {
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-top: 2px;
+  }
+  .song-dur { font-size: 11px; color: var(--text-sub); flex-shrink: 0; }
+
+  /* ── Now Playing Bar ── */
+  .now-playing {
+    position: fixed;
+    bottom: 80px; left: 50%; transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 640px;
+    background: rgba(29,185,84,0.92);
+    backdrop-filter: blur(20px);
+    border-radius: 14px;
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 12px;
+    z-index: 10;
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+    transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    pointer-events: none;
+  }
+  .now-playing.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    pointer-events: all;
+  }
+  .np-thumb {
+    width: 40px; height: 40px;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .np-info { flex: 1; min-width: 0; }
+  .np-title { font-size: 13px; font-weight: 700; color: #000; }
+  .np-artist { font-size: 11px; color: rgba(0,0,0,0.65); margin-top: 1px; }
+  .np-controls { display: flex; align-items: center; gap: 10px; }
+  .np-btn {
+    background: rgba(0,0,0,0.15);
+    border: none; border-radius: 50%;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s;
+    color: #000;
+  }
+  .np-btn:hover { background: rgba(0,0,0,0.3); }
+  .np-btn.play-pause { width: 38px; height: 38px; background: #000; color: var(--green); }
+  .np-btn.play-pause:hover { background: #111; }
+
+  /* ── Input bar ── */
+  .input-bar {
+    position: fixed;
+    bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%;
+    max-width: 680px;
+    padding: 12px 16px 20px;
+    background: linear-gradient(to top, #0a0a0a 70%, transparent);
+    z-index: 20;
+  }
+  .input-inner {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 8px 8px 8px 18px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .input-inner:focus-within {
+    border-color: rgba(29,185,84,0.5);
+    box-shadow: 0 0 0 3px rgba(29,185,84,0.1);
+  }
+  .input-inner input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    caret-color: var(--green);
+  }
+  .input-inner input::placeholder { color: var(--text-sub); }
+
+  /* Mic button */
+  .mic-btn {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    background: var(--green);
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+    transition: all 0.2s;
+    overflow: visible;
+  }
+  .mic-btn:hover { background: var(--green-dark); transform: scale(1.05); }
+  .mic-btn.listening {
+    background: #ff4444;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(255,68,68,0.5); }
+    50%      { box-shadow: 0 0 0 12px rgba(255,68,68,0); }
+  }
+  .mic-btn svg { width: 18px; height: 18px; fill: #000; }
+
+  .send-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    color: var(--text-muted);
+  }
+  .send-btn:hover { border-color: var(--green); color: var(--green); }
+
+  /* ── Typing indicator ── */
+  .typing { display: flex; align-items: center; gap: 5px; padding: 4px 0; }
+  .typing span {
+    width: 6px; height: 6px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: typingDot 1.2s ease-in-out infinite;
+    opacity: 0.4;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typingDot {
+    0%,80%,100% { transform: scale(1); opacity: 0.4; }
+    40%          { transform: scale(1.3); opacity: 1; }
+  }
+
+  /* ── Progress bar (in playlist card) ── */
+  .progress-wrap {
+    padding: 10px 16px 14px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .progress-track {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--green);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 1s linear;
+  }
+  .progress-times {
+    display: flex; justify-content: space-between;
+    font-size: 10px; color: var(--text-sub);
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+
+  /* scroll */
+  .messages-scroll { overflow-y: auto; max-height: 55vh; padding-right: 4px; }
+  .messages-scroll::-webkit-scrollbar { width: 3px; }
+  .messages-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">
+    <svg viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+  </div>
+  <div>
+    <h1>VIBEBOT <span>for Spotify</span></h1>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Quick mood chips -->
+  <div class="mood-section">
+    <div class="mood-label">Quick Mood</div>
+    <div class="mood-chips">
+      <div class="chip" onclick="quickMood('morning walk')"><span class="chip-emoji">🚶</span> Morning Walk</div>
+      <div class="chip" onclick="quickMood('running')"><span class="chip-emoji">🏃</span> Running</div>
+      <div class="chip" onclick="quickMood('gym workout')"><span class="chip-emoji">💪</span> Gym</div>
+      <div class="chip" onclick="quickMood('bollywood party')"><span class="chip-emoji">🎉</span> Bollywood Party</div>
+      <div class="chip" onclick="quickMood('afrobeats party')"><span class="chip-emoji">🔥</span> Afrobeats</div>
+      <div class="chip" onclick="quickMood('chill late night')"><span class="chip-emoji">🌙</span> Late Night Chill</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Messages -->
+  <div class="messages-scroll">
+    <div class="messages" id="messages">
+      <div class="msg bot">
+        <div class="msg-avatar">♪</div>
+        <div class="msg-bubble">
+          Hey! I'm <strong>VibeBot</strong> 🎵<br><br>
+          Tell me your mood, activity, or just say something like <em>"I'm going for a run"</em> or <em>"Bollywood party vibes"</em> — I'll build the perfect playlist and start playing.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Now Playing Bar -->
+<div class="now-playing" id="nowPlaying">
+  <div class="np-thumb" id="npThumb">🎵</div>
+  <div class="np-info">
+    <div class="np-title" id="npTitle">—</div>
+    <div class="np-artist" id="npArtist">—</div>
+  </div>
+  <div class="np-controls">
+    <button class="np-btn" onclick="prevSong()" title="Previous">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+    </button>
+    <button class="np-btn play-pause" id="playPauseBtn" onclick="togglePlay()">
+      <svg id="playIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      <svg id="pauseIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+    </button>
+    <button class="np-btn" onclick="nextSong()" title="Next">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zm2-8.14 5.43 3.86L8 17.14V9.86zM16 6h2v12h-2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- Input bar -->
+<div class="input-bar">
+  <div class="input-inner">
+    <input type="text" id="textInput" placeholder="Tell me your vibe or activity..." onkeydown="handleKey(event)"/>
+    <button class="send-btn" onclick="sendText()" title="Send">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+    <button class="mic-btn" id="micBtn" onclick="toggleMic()" title="Voice input">
+      <svg id="micIcon" viewBox="0 0 24 24"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────
+// DATA: Playlist templates
+// ─────────────────────────────────────────
+const PLAYLISTS = {
+  walk: {
+    title: "🚶 Morning Walk Vibes",
+    bpm: "100–110 BPM",
+    emoji: "🚶",
+    songs: [
+      { name: "Levitating", artist: "Dua Lipa", dur: "3:23", emoji: "✨" },
+      { name: "Can't Stop the Feeling", artist: "Justin Timberlake", dur: "3:56", emoji: "☀️" },
+      { name: "Happy", artist: "Pharrell Williams", dur: "3:53", emoji: "😊" },
+      { name: "Good as Hell", artist: "Lizzo", dur: "2:39", emoji: "💛" },
+      { name: "Watermelon Sugar", artist: "Harry Styles", dur: "2:54", emoji: "🍉" },
+      { name: "Blinding Lights", artist: "The Weeknd", dur: "3:20", emoji: "🌅" },
+    ]
+  },
+  run: {
+    title: "🏃 Run Hard Playlist",
+    bpm: "140–160 BPM",
+    emoji: "🏃",
+    songs: [
+      { name: "Eye of the Tiger", artist: "Survivor", dur: "4:05", emoji: "🐯" },
+      { name: "Till I Collapse", artist: "Eminem", dur: "4:57", emoji: "💥" },
+      { name: "Stronger", artist: "Kanye West", dur: "5:11", emoji: "⚡" },
+      { name: "Run the World", artist: "Beyoncé", dur: "3:56", emoji: "👑" },
+      { name: "Power", artist: "Kanye West", dur: "4:52", emoji: "🔥" },
+      { name: "Can't Hold Us", artist: "Macklemore & Ryan Lewis", dur: "4:18", emoji: "🚀" },
+    ]
+  },
+  gym: {
+    title: "💪 Gym Beast Mode",
+    bpm: "160–180 BPM",
+    emoji: "💪",
+    songs: [
+      { name: "SICKO MODE", artist: "Travis Scott", dur: "5:12", emoji: "🔥" },
+      { name: "Faded", artist: "Alan Walker", dur: "3:32", emoji: "⚡" },
+      { name: "Lose Yourself", artist: "Eminem", dur: "5:26", emoji: "💎" },
+      { name: "God's Plan", artist: "Drake", dur: "3:18", emoji: "🙏" },
+      { name: "HUMBLE.", artist: "Kendrick Lamar", dur: "2:57", emoji: "👊" },
+      { name: "Starboy", artist: "The Weeknd", dur: "3:50", emoji: "⭐" },
+    ]
+  },
+  bollywood: {
+    title: "🎉 Bollywood Party",
+    bpm: "120–140 BPM",
+    emoji: "🎉",
+    songs: [
+      { name: "Param Sundari", artist: "Shreya Ghoshal", dur: "3:25", emoji: "💃" },
+      { name: "Butta Bomma", artist: "Armaan Malik", dur: "3:41", emoji: "🌸" },
+      { name: "Kala Chashma", artist: "Amar Arshi, Badshah", dur: "3:47", emoji: "😎" },
+      { name: "Badtameez Dil", artist: "Shalmali Kholgade", dur: "4:03", emoji: "❤️" },
+      { name: "Ghungroo", artist: "Arijit Singh, Shilpa Rao", dur: "4:36", emoji: "🔔" },
+      { name: "Dil Dhadakne Do", artist: "Priyanka Chopra, Farhan", dur: "3:55", emoji: "🎊" },
+    ]
+  },
+  afrobeats: {
+    title: "🔥 Afrobeats Fire",
+    bpm: "105–125 BPM",
+    emoji: "🔥",
+    songs: [
+      { name: "Essence", artist: "Wizkid ft. Tems", dur: "3:37", emoji: "🌍" },
+      { name: "Calm Down", artist: "Rema", dur: "3:38", emoji: "🫀" },
+      { name: "Ye", artist: "Burna Boy", dur: "3:46", emoji: "🔥" },
+      { name: "Peru", artist: "Fireboy DML", dur: "3:05", emoji: "🌊" },
+      { name: "Kilometre", artist: "Davido", dur: "3:15", emoji: "💛" },
+      { name: "Love Nwantiti", artist: "CKay", dur: "2:52", emoji: "💚" },
+    ]
+  },
+  chill: {
+    title: "🌙 Late Night Chill",
+    bpm: "70–90 BPM",
+    emoji: "🌙",
+    songs: [
+      { name: "Redbone", artist: "Childish Gambino", dur: "5:26", emoji: "🌌" },
+      { name: "Nights", artist: "Frank Ocean", dur: "5:07", emoji: "🌙" },
+      { name: "Location", artist: "Khalid", dur: "3:52", emoji: "📍" },
+      { name: "Slow Dancing in the Dark", artist: "Joji", dur: "3:30", emoji: "🕯️" },
+      { name: "Golden Hour", artist: "JVKE", dur: "3:29", emoji: "🌅" },
+      { name: "Die For You", artist: "The Weeknd", dur: "4:20", emoji: "💜" },
+    ]
+  }
+};
+
+// ─────────────────────────────────────────
+// INTENT DETECTION
+// ─────────────────────────────────────────
+function detectIntent(text) {
+  const t = text.toLowerCase();
+  if (t.match(/walk|stroll|morning walk|evening walk/)) return 'walk';
+  if (t.match(/run|running|jog|jogging|sprint/)) return 'run';
+  if (t.match(/gym|workout|lift|exercise|training|weights/)) return 'gym';
+  if (t.match(/bollywood|hindi|desi|punjabi|bhangra/)) return 'bollywood';
+  if (t.match(/afrobeat|afro|afrobeet/)) return 'afrobeats';
+  if (t.match(/chill|relax|calm|late night|sleep|study|soft|vibe/)) return 'chill';
+  if (t.match(/party|dance|club|hype/)) return 'bollywood'; // default party
+  return null;
+}
+
+// ─────────────────────────────────────────
+// BOT RESPONSES
+// ─────────────────────────────────────────
+const RESPONSES = {
+  walk: "Perfect! A morning walk deserves upbeat, feel-good energy. Building your playlist at ~100–110 BPM — the sweet spot for a relaxed but lively pace! 🚶✨",
+  run: "Let's go! I'm pulling high-energy bangers at 140–160 BPM. These tracks will push you to run faster without even noticing! 🏃💨",
+  gym: "BEAST MODE ACTIVATED. Loading heavy-hitting tracks at 160–180 BPM. Time to crush those reps! 💪🔥",
+  bollywood: "Aaja dance karo! 🎉 Curating the hottest Bollywood bops — perfect for a desi party vibe!",
+  afrobeats: "Afrobeats is the MOVE right now 🌍🔥 Loading pure heat from Wizkid, Burna Boy, Rema and more!",
+  chill: "Setting the late night mood 🌙 Soft, soulful, deep vibes coming right up. Turn the lights low..."
+};
+
+// ─────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────
+let currentPlaylist = null;
+let currentSongIndex = 0;
+let isPlaying = false;
+let progressInterval = null;
+let progressSeconds = 0;
+
+// ─────────────────────────────────────────
+// RENDER PLAYLIST
+// ─────────────────────────────────────────
+function renderPlaylist(key) {
+  const pl = PLAYLISTS[key];
+  currentPlaylist = { key, songs: pl.songs };
+  currentSongIndex = 0;
+
+  let html = `<div class="playlist-card">
+    <div class="playlist-header">
+      <div class="playlist-title">${pl.title}</div>
+      <div class="playlist-meta">${pl.bpm} · ${pl.songs.length} tracks</div>
+    </div>
+    <div class="song-list" id="songList">`;
+
+  pl.songs.forEach((s, i) => {
+    html += `<div class="song-item ${i === 0 ? 'playing' : ''}" id="song-${i}" onclick="playSong(${i})">
+      <div class="song-num">${i + 1}</div>
+      <div class="playing-bars"><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>
+      <div class="song-thumb">${s.emoji}</div>
+      <div class="song-info">
+        <div class="song-name">${s.name}</div>
+        <div class="song-artist">${s.artist}</div>
+      </div>
+      <div class="song-dur">${s.dur}</div>
+    </div>`;
+  });
+
+  html += `</div>
+    <div class="progress-wrap">
+      <div class="progress-track" onclick="seekProgress(event)">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-times">
+        <span id="timeElapsed">0:00</span>
+        <span id="timeDuration">${pl.songs[0].dur}</span>
+      </div>
+    </div>
+  </div>`;
+
+  return html;
+}
+
+function playSong(index) {
+  if (!currentPlaylist) return;
+  document.querySelectorAll('.song-item').forEach(el => el.classList.remove('playing'));
+  document.getElementById('song-' + index)?.classList.add('playing');
+  currentSongIndex = index;
+  const song = currentPlaylist.songs[index];
+  updateNowPlaying(song);
+  startProgress(song.dur);
+  isPlaying = true;
+  updatePlayPause();
+}
+
+function prevSong() {
+  if (!currentPlaylist) return;
+  const idx = (currentSongIndex - 1 + currentPlaylist.songs.length) % currentPlaylist.songs.length;
+  playSong(idx);
+}
+
+function nextSong() {
+  if (!currentPlaylist) return;
+  const idx = (currentSongIndex + 1) % currentPlaylist.songs.length;
+  playSong(idx);
+}
+
+function togglePlay() {
+  isPlaying = !isPlaying;
+  updatePlayPause();
+  if (isPlaying) {
+    resumeProgress();
+  } else {
+    clearInterval(progressInterval);
+  }
+}
+
+function updatePlayPause() {
+  document.getElementById('playIcon').style.display = isPlaying ? 'none' : 'block';
+  document.getElementById('pauseIcon').style.display = isPlaying ? 'block' : 'none';
+}
+
+function updateNowPlaying(song) {
+  document.getElementById('npThumb').textContent = song.emoji;
+  document.getElementById('npTitle').textContent = song.name;
+  document.getElementById('npArtist').textContent = song.artist;
+  document.getElementById('nowPlaying').classList.add('visible');
+  document.getElementById('timeDuration').textContent = song.dur;
+}
+
+function startProgress(durStr) {
+  clearInterval(progressInterval);
+  progressSeconds = 0;
+  const parts = durStr.split(':');
+  const totalSec = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+  resumeProgress(totalSec);
+}
+
+function resumeProgress(totalSec) {
+  if (totalSec === undefined) {
+    const durStr = currentPlaylist?.songs[currentSongIndex]?.dur || '3:30';
+    const p = durStr.split(':');
+    totalSec = parseInt(p[0]) * 60 + parseInt(p[1]);
+  }
+  clearInterval(progressInterval);
+  progressInterval = setInterval(() => {
+    if (!isPlaying) return;
+    progressSeconds++;
+    if (progressSeconds >= totalSec) {
+      clearInterval(progressInterval);
+      nextSong();
+      return;
+    }
+    const pct = (progressSeconds / totalSec) * 100;
+    const fill = document.getElementById('progressFill');
+    if (fill) fill.style.width = pct + '%';
+    const elapsed = document.getElementById('timeElapsed');
+    if (elapsed) {
+      const m = Math.floor(progressSeconds / 60);
+      const s = progressSeconds % 60;
+      elapsed.textContent = m + ':' + String(s).padStart(2, '0');
+    }
+  }, 1000);
+}
+
+function seekProgress(e) {
+  const track = e.currentTarget;
+  const pct = e.offsetX / track.offsetWidth;
+  const durStr = currentPlaylist?.songs[currentSongIndex]?.dur || '3:30';
+  const p = durStr.split(':');
+  const totalSec = parseInt(p[0]) * 60 + parseInt(p[1]);
+  progressSeconds = Math.floor(pct * totalSec);
+}
+
+// ─────────────────────────────────────────
+// MESSAGES
+// ─────────────────────────────────────────
+function addMessage(role, html) {
+  const msgs = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  const avatar = role === 'bot' ? '♪' : '👤';
+  div.innerHTML = `<div class="msg-avatar">${avatar}</div><div class="msg-bubble">${html}</div>`;
+  msgs.appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  return div;
+}
+
+function showTyping() {
+  const msgs = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg bot'; div.id = 'typing-indicator';
+  div.innerHTML = `<div class="msg-avatar">♪</div><div class="msg-bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  msgs.appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+function removeTyping() {
+  document.getElementById('typing-indicator')?.remove();
+}
+
+// ─────────────────────────────────────────
+// HANDLE USER INPUT
+// ─────────────────────────────────────────
+function handleInput(userText) {
+  if (!userText.trim()) return;
+  addMessage('user', userText);
+  showTyping();
+
+  setTimeout(() => {
+    removeTyping();
+    const intent = detectIntent(userText);
+    if (intent) {
+      addMessage('bot', RESPONSES[intent]);
+      setTimeout(() => {
+        const playlistDiv = document.createElement('div');
+        playlistDiv.innerHTML = renderPlaylist(intent);
+        const msgs = document.getElementById('messages');
+        msgs.appendChild(playlistDiv);
+        playlistDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        // Auto play first song
+        setTimeout(() => {
+          isPlaying = true;
+          updatePlayPause();
+          updateNowPlaying(PLAYLISTS[intent].songs[0]);
+          startProgress(PLAYLISTS[intent].songs[0].dur);
+        }, 400);
+      }, 300);
+    } else {
+      addMessage('bot', `Hmm, I didn't quite catch your vibe 🤔<br><br>Try something like:<br>• <em>"I'm going for a run"</em><br>• <em>"Gym workout playlist"</em><br>• <em>"Bollywood party mood"</em><br>• <em>"Late night chill vibes"</em>`);
+    }
+  }, 1400);
+}
+
+function sendText() {
+  const inp = document.getElementById('textInput');
+  const val = inp.value.trim();
+  if (!val) return;
+  inp.value = '';
+  handleInput(val);
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter') sendText();
+}
+
+function quickMood(mood) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  handleInput(mood);
+}
+
+// ─────────────────────────────────────────
+// VOICE / MIC
+// ─────────────────────────────────────────
+let recognition = null;
+let isListening = false;
+
+function toggleMic() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    addMessage('bot', "Voice input isn't supported in this browser. Try Chrome! 🎙️");
+    return;
+  }
+  if (isListening) {
+    recognition?.stop();
+    return;
+  }
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.lang = 'en-US';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    isListening = true;
+    document.getElementById('micBtn').classList.add('listening');
+    document.querySelector('#textInput').placeholder = 'Listening...';
+  };
+  recognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    document.querySelector('#textInput').value = transcript;
+    handleInput(transcript);
+  };
+  recognition.onerror = recognition.onend = () => {
+    isListening = false;
+    document.getElementById('micBtn').classList.remove('listening');
+    document.querySelector('#textInput').placeholder = 'Tell me your vibe or activity...';
+  };
+  recognition.start();
+}
+</script>
+</body>
+</html>
